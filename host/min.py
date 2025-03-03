@@ -663,12 +663,13 @@ class MINTransport:
         if len(self._transport_fifo) == 0:
             raise AssertionError
 
+        now_ms = self._now_ms()
         window_size = (self._sn_max - self._sn_min) & 0xFF
         oldest_frame = self._transport_fifo[0]  # type: MINFrame
-        longest_elapsed_time = self._now_ms() - oldest_frame.last_sent_time
+        longest_elapsed_time = now_ms - oldest_frame.last_sent_time
 
         for i in range(window_size):
-            elapsed = self._now_ms() - self._transport_fifo[i].last_sent_time
+            elapsed = now_ms - self._transport_fifo[i].last_sent_time
             if elapsed >= longest_elapsed_time:
                 oldest_frame = self._transport_fifo[i]
                 longest_elapsed_time = elapsed
@@ -683,11 +684,12 @@ class MINTransport:
 
         :return: array of accepted MIN frames
         """
+        now_ms = self._now_ms()
         remote_connected = (
-            self._now_ms() - self._last_received_anything_ms
+            now_ms - self._last_received_anything_ms
         ) < self.idle_timeout_ms
         remote_active = (
-            self._now_ms() - self._last_received_frame_ms
+            now_ms - self._last_received_frame_ms
         ) < self.idle_timeout_ms
 
         self._rx_list = []
@@ -704,6 +706,8 @@ class MINTransport:
             # Frames still to send
             frame = self._transport_fifo_get(n=window_size)
             frame.seq = self._sn_max
+            self._last_sent_frame_ms = now_ms
+            frame.last_sent_time = now_ms
             if min_logger.isEnabledFor(DEBUG):
                 min_logger.debug(
                     "Sending new frame id=0x%02X seq=%d len=%d payload=%s",
@@ -719,7 +723,7 @@ class MINTransport:
             if window_size > 0 and remote_connected:
                 oldest_frame = self._find_oldest_frame()
                 if (
-                    self._now_ms() - oldest_frame.last_sent_time
+                    now_ms - oldest_frame.last_sent_time
                     > self.frame_retransmit_timeout_ms
                 ):
                     min_logger.debug(
@@ -731,7 +735,7 @@ class MINTransport:
 
         # Periodically transmit ACK
         if (
-            self._now_ms() - self._last_sent_ack_time_ms
+            now_ms - self._last_sent_ack_time_ms
             > self.ack_retransmit_timeout_ms
         ):
             if remote_active:

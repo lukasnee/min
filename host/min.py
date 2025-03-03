@@ -11,7 +11,7 @@ from struct import pack
 from binascii import crc32
 from threading import Lock
 from time import time
-from logging import getLogger, ERROR
+from logging import getLogger, ERROR, DEBUG, INFO
 from typing import Dict, Optional, List
 
 from serial import Serial, SerialException
@@ -254,14 +254,16 @@ class MINTransport:
             raise ValueError("MIN ID out of range")
         frame = MINFrame(min_id=min_id, payload=payload, transport=False, seq=0)
         on_wire_bytes = self._on_wire_bytes(frame=frame)
-        min_logger.info(
-            "Sending MIN frame, min_id=0x%02X, payload=%s",
-            min_id,
-            bytes_to_hexstr(payload),
-        )
-        min_logger.debug(
-            "Sending MIN frame, on wire bytes=%s", bytes_to_hexstr(on_wire_bytes)
-        )
+        if min_logger.isEnabledFor(INFO):
+            min_logger.info(
+                "Sending MIN frame, min_id=0x%02X, payload=%s",
+                min_id,
+                bytes_to_hexstr(payload),
+            )
+        if min_logger.isEnabledFor(DEBUG):
+            min_logger.debug(
+                "Sending MIN frame, on wire bytes=%s", bytes_to_hexstr(on_wire_bytes)
+            )
         self._serial_write(on_wire_bytes)
 
     def queue_frame(self, min_id: int, payload: bytes):
@@ -485,7 +487,8 @@ class MINTransport:
         Called by handler to pass over a sequence of bytes
         :param data:
         """
-        min_logger.debug("Received bytes: %s", bytes_to_hexstr(data))
+        if min_logger.isEnabledFor(DEBUG):
+            min_logger.debug("Received bytes: %s", bytes_to_hexstr(data))
         for byte in data:
             if self._rx_header_bytes_seen == 2:
                 self._rx_header_bytes_seen = 0
@@ -701,15 +704,14 @@ class MINTransport:
             # Frames still to send
             frame = self._transport_fifo_get(n=window_size)
             frame.seq = self._sn_max
-            self._last_sent_frame_ms = self._now_ms()
-            frame.last_sent_time = self._now_ms()
-            min_logger.debug(
-                "Sending new frame id=0x%02X seq=%d len=%d payload=%s",
-                frame.min_id,
-                frame.seq,
-                len(frame.payload),
-                bytes_to_hexstr(frame.payload),
-            )
+            if min_logger.isEnabledFor(DEBUG):
+                min_logger.debug(
+                    "Sending new frame id=0x%02X seq=%d len=%d payload=%s",
+                    frame.min_id,
+                    frame.seq,
+                    len(frame.payload),
+                    bytes_to_hexstr(frame.payload),
+                )
             self._transport_fifo_send(frame=frame)
             self._sn_max = (self._sn_max + 1) & 0xFF
         else:
@@ -777,8 +779,8 @@ class MINTransportSerial(MINTransport):
     def _serial_write(self, data: bytes):
         if self.fake_errors:
             data = self._corrupted_data(data)
-
-        min_logger.debug("_serial_write: %s", bytes_to_hexstr(data))
+        if min_logger.isEnabledFor(DEBUG):
+            min_logger.debug("_serial_write: %s", bytes_to_hexstr(data))
         self._serial.write(data)
 
     def _serial_any(self):

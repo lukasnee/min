@@ -28,7 +28,7 @@ def int32_to_bytes(value: int) -> bytes:
 
 
 def bytes_to_hexstr(bytesequence: bytes) -> str:
-    return "".join(f"{b:02X}" for b in bytesequence)
+    return bytesequence.hex().upper()
 
 
 class MINConnectionError(Exception):
